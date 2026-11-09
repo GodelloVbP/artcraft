@@ -36,6 +36,10 @@ import {
   type DroppedFiles,
 } from "./deck/usePromptBoxDrop";
 import { DeckAddAction, DeckItem } from "./deck/deckTypes";
+import {
+  UPLOAD_IN_PROGRESS_MESSAGE,
+  shouldBlockEnqueueForUploads,
+} from "./enqueueUploadGuard";
 
 interface PromptBoxImageProps {
   useJobContext: () => JobContextType;
@@ -139,6 +143,11 @@ export const PromptBoxImage = ({
     uploadImage: uploadImage as UploadMediaFn | undefined,
     ownGalleryModal: true,
   });
+
+  const isAwaitingUploads = shouldBlockEnqueueForUploads(
+    deck.uploadingImages.length,
+    !!selectedModel?.canUseImagePrompt,
+  );
 
   // Drag & drop / paste onto the box bounds. Images are the only reference
   // kind this box takes, and only when the model can use them at all.
@@ -368,6 +377,10 @@ export const PromptBoxImage = ({
       console.warn("Cannot generate image: no model selected");
       return;
     }
+    if (isAwaitingUploads) {
+      toast.error(UPLOAD_IN_PROGRESS_MESSAGE);
+      return;
+    }
 
     console.debug("Selected model:", selectedModel);
     console.debug("Prompt:", prompt);
@@ -581,7 +594,7 @@ export const PromptBoxImage = ({
               />
               <GenerateIconButton
                 onClick={handleEnqueue}
-                disabled={!prompt.trim()}
+                disabled={!prompt.trim() || isAwaitingUploads}
                 loading={isEnqueueing}
                 credits={isDirectMidjourney ? 0 : credits}
               />
